@@ -20,10 +20,10 @@ jobs:
         include:
           # x86_64 Linux
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-linux
           # Apple Silicon (macos-14 以降のランナーは arm64 なのでネイティブビルド)
           - os: macos-14
-            target: aarch64-apple-darwin
+            target: aarch64-apple-silicon
     steps:
       - uses: actions/checkout@v4
 
