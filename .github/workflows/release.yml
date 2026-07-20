@@ -1,0 +1,89 @@
+name: release
+
+# main へ push されるたびに各プラットフォーム向けにビルドし、
+# Cargo.toml の version をタグにしてリリースへアップロードする。
+on:
+  push:
+    branches: [main]
+
+# リリース(タグ/アセット)の作成に必要
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # x86_64 Linux
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          # Apple Silicon (macos-14 以降のランナーは arm64 なのでネイティブビルド)
+          - os: macos-14
+            target: aarch64-apple-darwin
+    steps:
+      - uses: actions/checkout@v4
+
+      # serialport は Linux で libudev を要求する
+      - name: Install libudev (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libudev-dev pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          staging="oatmeal-${{ matrix.target }}"
+          mkdir "$staging"
+          cp "target/${{ matrix.target }}/release/oatmeal" "$staging/"
+          cp README.md "$staging/" 2>/dev/null || true
+          tar czf "$staging.tar.gz" "$staging"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oatmeal-${{ matrix.target }}
+          path: oatmeal-${{ matrix.target }}.tar.gz
+
+  release:
+    name: release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Cargo.toml の version からタグ名 (v<version>) を決める
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep -m1 '^version' Cargo.toml | sed -E 's/.*"(.*)".*/\1/')
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          files: dist/*.tar.gz
