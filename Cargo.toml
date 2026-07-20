@@ -1,0 +1,15 @@
+[package]
+name = "oatmeal"
+version = "0.1.0"
+edition = "2021"
+description = "USBシリアルデバイスをコマンド一発で選んで双方向モニタするCLI"
+
+[[bin]]
+name = "oatmeal"
+path = "src/main.rs"
+
+[dependencies]
+serialport = "4"
+dialoguer = "0.11"
+crossterm = "0.28"
+anyhow = "1"
