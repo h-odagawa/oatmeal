@@ -51,6 +51,55 @@ cargo run
 cargo install --path .
 ```
 
+## Building a release binary
+
+Steps to package a release build into a `tar.gz` with a SHA256 checksum for distribution.
+`dist/` is in `.gitignore`, so the artifacts are not committed to the repo.
+
+```bash
+# release build (the binary lands at target/release/oatmeal)
+cargo build --release
+
+# derive the version and target used in the artifact name
+VERSION="v$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)"   # e.g. v0.1.0
+TARGET="$(rustc -vV | sed -n 's/host: //p')"                          # e.g. x86_64-apple-darwin
+NAME="oatmeal-$VERSION-$TARGET"
+
+# pack into tar.gz and generate a SHA256 checksum
+mkdir -p dist
+tar czf "dist/$NAME.tar.gz" -C target/release oatmeal
+shasum -a 256 "dist/$NAME.tar.gz" > "dist/$NAME.tar.gz.sha256"
+# on Linux, use `sha256sum` instead of shasum
+```
+
+Output (example):
+
+```
+dist/oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz
+dist/oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz.sha256
+```
+
+Verify the checksum (run from the repo root):
+
+```bash
+shasum -a 256 -c dist/oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz.sha256
+```
+
+Using it on the receiving side:
+
+```bash
+tar xzf oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz
+./oatmeal
+```
+
+> To cross-build for another platform, add the target first, then build with `--target`.
+> The binary ends up at `target/<triple>/release/oatmeal`.
+>
+> ```bash
+> rustup target add aarch64-apple-darwin
+> cargo build --release --target aarch64-apple-darwin
+> ```
+
 ## Usage
 
 1. Run `oatmeal` (or `cargo run` inside the repo)

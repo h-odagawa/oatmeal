@@ -51,6 +51,55 @@ cargo run
 cargo install --path .
 ```
 
+## ビルド済みバイナリを作る
+
+配布用に、リリースビルドを `tar.gz` にまとめて SHA256 を添える手順。
+`dist/` は `.gitignore` 済みなので、成果物はリポジトリには含めない。
+
+```bash
+# リリースビルド（バイナリは target/release/oatmeal）
+cargo build --release
+
+# 配布ファイル名に使うバージョンとターゲットを取得
+VERSION="v$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)"   # 例: v0.1.0
+TARGET="$(rustc -vV | sed -n 's/host: //p')"                          # 例: x86_64-apple-darwin
+NAME="oatmeal-$VERSION-$TARGET"
+
+# tar.gz にまとめて SHA256 チェックサムを生成
+mkdir -p dist
+tar czf "dist/$NAME.tar.gz" -C target/release oatmeal
+shasum -a 256 "dist/$NAME.tar.gz" > "dist/$NAME.tar.gz.sha256"
+# Linux では shasum の代わりに `sha256sum` を使う
+```
+
+生成物（例）:
+
+```
+dist/oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz
+dist/oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz.sha256
+```
+
+チェックサムの検証（リポジトリのルートで実行）:
+
+```bash
+shasum -a 256 -c dist/oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz.sha256
+```
+
+配布先での使い方（受け取った側）:
+
+```bash
+tar xzf oatmeal-v0.1.0-x86_64-apple-darwin.tar.gz
+./oatmeal
+```
+
+> 別プラットフォーム向けにクロスビルドする場合は、対象ターゲットを追加してから
+> `--target` を付けてビルドする。バイナリは `target/<triple>/release/oatmeal` に出る。
+>
+> ```bash
+> rustup target add aarch64-apple-darwin
+> cargo build --release --target aarch64-apple-darwin
+> ```
+
 ## 使い方
 
 1. `oatmeal`（またはリポジトリ内で `cargo run`）を実行する
